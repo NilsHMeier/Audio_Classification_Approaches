@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import librosa
 from librosa import display
+import cv2
 from typing import List, Tuple
 
 
@@ -83,4 +84,18 @@ def plot_audio(audio: np.ndarray, sampling_rate: int, modes: List[str], plot_col
             axs[index].set(title='Chroma-CQT')
         if plot_colorbar and img is not None:
             fig.colorbar(img, ax=axs[index], format='%+2.0f dB')
+    plt.show()
+
+
+def display_images(images: List[np.ndarray], titles: List[str], plot_shape: Tuple[int, int] = None, title: str = ''):
+    if plot_shape is not None:
+        fig, axs = plt.subplots(nrows=plot_shape[0], ncols=plot_shape[1], sharex=True, sharey=True)
+    else:
+        fig, axs = plt.subplots(nrows=(len(images)), sharex=True, sharey=True)
+    axs = np.array(axs).flatten()
+    fig.suptitle(title, fontsize=16)
+    for index, image in enumerate(images):
+        axs[index].imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        axs[index].set(title=titles[index])
+    plt.tight_layout()
     plt.show()
