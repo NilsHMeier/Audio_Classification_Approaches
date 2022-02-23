@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import pandas as pd
 import librosa
 from librosa import display
 import cv2
-from typing import List, Tuple
+from typing import List, Tuple, Iterable
+from tensorflow.keras.callbacks import History
 
 
 def plot_data(dataset: pd.DataFrame, plot_columns: List[List[str]], x_column: str, types: List[str], title: str = '',
@@ -98,4 +100,80 @@ def display_images(images: List[np.ndarray], titles: List[str], plot_shape: Tupl
         axs[index].imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         axs[index].set(title=titles[index])
     plt.tight_layout()
+    plt.show()
+
+
+def plot_heatmap(matrix: np.ndarray, classnames: List[str], xlabel: str = 'Predicted Label',
+                 ylabel: str = 'True Label', title: str = '', suptitle: str = '',
+                 colormap: str = 'Blues'):
+    colormap = plt.cm.get_cmap(colormap)
+    fig, axs = plt.subplots()
+    fig.suptitle(title, fontsize=16)
+    sns.heatmap(matrix, xticklabels=classnames, yticklabels=classnames, annot=True, fmt='g',
+                ax=axs, cmap=colormap)
+    axs.set(xlabel=xlabel, ylabel=ylabel, title=suptitle)
+    plt.show()
+
+
+def plot_feature_performances(features: List[Tuple[str]], scores: Iterable[float], title: str = '', suptitle: str = ''):
+    fig, axs = plt.subplots()
+    fig.suptitle(title, fontsize=16)
+
+    # Join features for yticklabels
+    labels = [','.join(f) for f in features]
+
+    # Create horizontal bar plot
+    ind = np.arange(len(features))
+    axs.barh(ind, scores, 0.75, color='lightblue')
+    axs.set(title=suptitle, xlabel='Score', ylabel='Features')
+    axs.set_yticks(ind)
+    axs.set_yticklabels(labels, minor=False)
+
+    # Add score values to bars
+    for i, v in enumerate(scores):
+        axs.text(v - 0.15, i, str(v), color='black', fontweight='bold')
+
+    plt.show()
+
+
+def plot_trainings_history(history: History, params: List[str], single_plot: bool = False, validation: bool = False,
+                           title: str = ''):
+    # Create figure and subplots based on given parameters
+    if single_plot or len(params) == 1:
+        fig, axs = plt.subplots()
+        axs = np.array([axs])
+    else:
+        fig, axs = plt.subplots(nrows=len(params))
+    fig.suptitle(title, fontsize=16)
+
+    # Create plots with params
+    for index, param in enumerate(params):
+        index = 0 if single_plot else index
+        axs[index].plot(history.epoch, history.history[param], label=f'train_{param}')
+        if validation:
+            axs[index].plot(history.epoch, history.history[f'val_{param}'], label=f'val_{param}')
+        if not single_plot:
+            axs[index].legend()
+        axs[index].set(xlabel='Epoch', ylabel=param.title(), xlim=(0, np.max(history.epoch)-1))
+    if single_plot:
+        axs[0].legend()
+    plt.show()
+
+
+def plot_learning_rate(history: History, plot_metric: bool = False, metric: str = ''):
+    # Create figure and subplots
+    if plot_metric:
+        fig, axs = plt.subplots(nrows=2)
+    else:
+        fig, axs = plt.subplots()
+        axs = np.array([axs])
+    fig.suptitle('Learning Rate Optimization', fontsize=16)
+    # Plot the results
+    axs[0].semilogx(history.history['lr'], history.history['loss'])
+    axs[0].set(title='Loss depending on Learning Rate', xlabel='Learning Rate', ylabel='Loss',
+               xlim=(min(history.history['lr']), max(history.history['lr'])), ylim=(0, max(history.history['loss'])))
+    if plot_metric:
+        axs[1].semilogx(history.history['lr'], history.history[metric])
+        axs[1].set(title='Accuracy depending on Learning Rate', xlabel='Learning Rate', ylabel='Accuracy',
+                   xlim=(min(history.history['lr']), max(history.history['lr'])), ylim=(0, 1))
     plt.show()
