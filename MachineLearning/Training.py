@@ -1,6 +1,6 @@
 from .Evaluation import Evaluation
 from .ModelBuilder import compile_model_default
-from tensorflow.keras import models, Sequential, callbacks, Model
+from tensorflow.keras import models, Sequential, callbacks, Model, utils
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import CategoricalAccuracy
@@ -62,6 +62,9 @@ def get_cross_validation_score(model: Model, features: Union[np.ndarray, Iterabl
 
 def find_optimal_learning_rate(model: Model, features: Union[np.ndarray, Iterable], labels: Union[np.ndarray, Iterable],
                                minimum_lr: float = 1e-8, epochs: int = 70) -> callbacks.History:
+    # Encode labels if not already done
+    if len(labels.shape) != 2:
+        labels = utils.to_categorical(labels)
     # Compile the model
     model.compile(optimizer=Adam(learning_rate=minimum_lr), loss=CategoricalCrossentropy(from_logits=True),
                   metrics=[CategoricalAccuracy(name='accuracy')])
