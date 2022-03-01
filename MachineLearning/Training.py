@@ -6,7 +6,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import CategoricalAccuracy
 from sklearn.model_selection import StratifiedKFold
 import numpy as np
-from typing import Iterable, Tuple, Union
+from typing import Iterable, Tuple, Union, List
 
 
 def get_best_model(model: Model, X_train: Iterable, y_train: Iterable, X_test: Iterable,
@@ -49,15 +49,19 @@ def get_stable_metric(model: Model, X_train: Iterable, y_train: Iterable, X_test
 
 
 def get_cross_validation_score(model: Model, features: Union[np.ndarray, Iterable], labels: Union[np.ndarray, Iterable],
-                               metric: str, n_folds: int = 5) -> float:
-    scores = []
+                               metric: Union[str, List[str]], n_folds: int = 5) -> float:
+    scores = [] if isinstance(metric, str) else {m: [] for m in metric}
     for train, test in StratifiedKFold(n_splits=n_folds, shuffle=True).split(X=features, y=labels):
         temp_model = compile_model_default(model=models.clone_model(model=model))
         temp_model.fit(x=features[train], y=labels[train], validation_split=0.3, epochs=100, batch_size=64,
                        callbacks=callbacks.EarlyStopping(patience=10, restore_best_weights=True))
         y_pred = np.argmax(model.predict(features[test]), axis=1)
-        scores.append(Evaluation.single_classification(stat=metric, y_true=labels[test], y_pred=y_pred))
-    return np.mean(scores)
+        if isinstance(metric, str):
+            scores.append(Evaluation.single_classification(stat=metric, y_true=labels[test], y_pred=y_pred))
+        else:
+            for m, v in Evaluation.multi_classification(stats=metric, y_true=labels[test], y_pred=y_pred).items():
+                scores[m].append(v)
+    return np.mean(scores) if isinstance(metric, str) else {m: np.mean(s) for m, s in scores.items()}
 
 
 def find_optimal_learning_rate(model: Model, features: Union[np.ndarray, Iterable], labels: Union[np.ndarray, Iterable],
