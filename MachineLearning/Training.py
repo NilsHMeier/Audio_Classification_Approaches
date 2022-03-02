@@ -50,16 +50,21 @@ def get_stable_metric(model: Model, X_train: Iterable, y_train: Iterable, X_test
 
 def get_cross_validation_score(model: Model, features: Union[np.ndarray, Iterable], labels: Union[np.ndarray, Iterable],
                                metric: Union[str, List[str]], n_folds: int = 5) -> float:
+    if len(labels.shape) != 2:
+        labels = utils.to_categorical(labels)
+
     scores = [] if isinstance(metric, str) else {m: [] for m in metric}
-    for train, test in StratifiedKFold(n_splits=n_folds, shuffle=True).split(X=features, y=labels):
+    for train, test in StratifiedKFold(n_splits=n_folds, shuffle=True).split(X=features, y=np.argmax(labels, axis=1)):
+        X_train, X_test, y_train, y_test = features[train], features[test], labels[train], labels[test]
         temp_model = compile_model_default(model=models.clone_model(model=model))
-        temp_model.fit(x=features[train], y=labels[train], validation_split=0.3, epochs=100, batch_size=64,
-                       callbacks=callbacks.EarlyStopping(patience=10, restore_best_weights=True))
-        y_pred = np.argmax(model.predict(features[test]), axis=1)
+        temp_model.fit(x=X_train, y=y_train, validation_data=(X_test, y_test), epochs=100,
+                       batch_size=64, callbacks=callbacks.EarlyStopping(patience=10, restore_best_weights=True))
+        y_pred = np.argmax(temp_model.predict(X_test), axis=1)
+        y_true = np.argmax(y_test, axis=1)
         if isinstance(metric, str):
-            scores.append(Evaluation.single_classification(stat=metric, y_true=labels[test], y_pred=y_pred))
+            scores.append(Evaluation.single_classification(stat=metric, y_true=y_true, y_pred=y_pred))
         else:
-            for m, v in Evaluation.multi_classification(stats=metric, y_true=labels[test], y_pred=y_pred).items():
+            for m, v in Evaluation.multi_classification(stats=metric, y_true=y_true, y_pred=y_pred).items():
                 scores[m].append(v)
     return np.mean(scores) if isinstance(metric, str) else {m: np.mean(s) for m, s in scores.items()}
 
