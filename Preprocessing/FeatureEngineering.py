@@ -146,7 +146,8 @@ class WaveFeatures(FeatureEngineering):
 class ImageFeatures(FeatureEngineering):
 
     def __init__(self, audio_path: pathlib.Path, label_path: pathlib.Path, audio_sr: int = 22050,
-                 label_mode: str = 'max'):
+                 label_mode: str = 'max', image_size: Tuple[int, int] = None):
+        self.image_size = image_size
         super().__init__(audio_path, label_path, audio_sr, label_mode)
 
     def features_for_audio(self, audio: np.ndarray, sr: int, window_size: float, step_size: float,
@@ -173,8 +174,7 @@ class ImageFeatures(FeatureEngineering):
             plt.close(fig)
         return np.array(features)
 
-    @staticmethod
-    def get_img_from_fig(fig: plt.Figure, dpi: int = 180):
+    def get_img_from_fig(self, fig: plt.Figure, dpi: int = 180):
         """
         Taken from https://stackoverflow.com/questions/7821518/matplotlib-save-plot-to-numpy-array
         """
@@ -184,5 +184,6 @@ class ImageFeatures(FeatureEngineering):
         img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
         buf.close()
         img = cv2.imdecode(img_arr, 1)
-        img = cv2.resize(img, (224, 224))
+        if self.image_size is not None:
+            img = cv2.resize(img, self.image_size)
         return img
