@@ -19,12 +19,18 @@ def show_wave_augmentation():
     features, labels = wave_features.features_for_file(filename=FILENAME, window_size=0.5, step_size=0.5)
     # Select random sample where a car has passed
     sample = features[np.random.choice(np.where(labels == 1)[0])]
-    # Apply data augmentation
+    # Apply data augmentation with noise
     wave_aug = WaveAugmentation(scale=0.05)
-    sample_augmented = wave_aug.apply_np(audio_signal=sample)
+    sample_augmented = wave_aug.apply_noise_np(audio_signal=sample)
     # Plot the results
     Visualizer.plot_augmentation_results(original_sample=sample, augmented_sample=sample_augmented, sampling_rate=22050,
-                                         title='Waveform Augmentation')
+                                         title='Waveform Augmentation with Noise')
+    # Apply data augmentation with factor
+    wave_aug = WaveAugmentation(scale=0.5)
+    sample_augmented = wave_aug.apply_factor_np(audio_signal=sample)
+    # Plot the results
+    Visualizer.plot_augmentation_results(original_sample=sample, augmented_sample=sample_augmented, sampling_rate=22050,
+                                         title='Waveform Augmentation with Factor')
 
 
 def show_spectral_augmentation():
