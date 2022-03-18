@@ -1,4 +1,8 @@
+import pandas as pd
 from scipy.spatial import distance as dist
+from sklearn.metrics.pairwise import cosine_distances
+import cv2
+from tensorflow.keras.applications import VGG16
 from collections import OrderedDict
 import numpy as np
 from typing import List, Tuple
@@ -106,3 +110,87 @@ class CentroidTracker:
 
         # Return the set of trackable objects
         return self.objects
+
+
+class SimilarityTracker:
+    """
+    This class implements object tracking based on the similarity of CNN extracted feature vectors.
+    """
+    feature_extractor = VGG16(include_top=False, weights='imagenet', input_shape=[224, 224, 3])
+
+    def __init__(self, max_disappeared: int = 15, max_distance: float = 0.5):
+        self.__nextID = 1
+        self.feature_vectors = OrderedDict()
+        self.boxes = OrderedDict()
+        self.disappeared = OrderedDict()
+        self.max_disappeared = max_disappeared
+        self.max_distance = max_distance
+
+    def __get_next_id(self):
+        i = self.__nextID
+        self.__nextID += 1
+        return i
+
+    def __register(self, feature_vector: np.ndarray, box: Tuple[int, int, int, int]):
+        object_id = self.__get_next_id()
+        self.feature_vectors[object_id] = feature_vector
+        self.disappeared[object_id] = 0
+        self.boxes[object_id] = box
+
+    def __deregister(self, object_id: int):
+        del self.feature_vectors[object_id]
+        del self.disappeared[object_id]
+        del self.boxes[object_id]
+
+    def update(self, image: np.ndarray, boxes: List[Tuple[int, int, int, int]]) \
+            -> OrderedDict[int, Tuple[int, int, int, int]]:
+        # In case of no boxes loop over disappeared objects and increase number of frames
+        if len(boxes) == 0:
+            for object_id in list(self.disappeared.keys()):
+                self.disappeared[object_id] += 1
+                # Deregister objects if they reached the number of maximum disappeared frames
+                if self.disappeared[object_id] > self.max_disappeared:
+                    self.__deregister(object_id)
+            return self.boxes
+
+        # Extract ROIs from image and calculate feature vectors
+        feat_vectors = []
+        for box in boxes:
+            x, y, w, h = box
+            roi = cv2.resize(image[y:y + h, x:x + w, :], (224, 224))
+            feat_vectors.append(self.feature_extractor.predict(x=np.array([roi])).flatten())
+
+        # Register all objects in case there are no tracked objects yet
+        if len(self.feature_vectors) == 0:
+            for vector, box in zip(feat_vectors, boxes):
+                self.__register(feature_vector=vector, box=box)
+        else:
+            # Try to match tracked objects
+            distances = pd.DataFrame(cosine_distances(list(self.feature_vectors.values()), feat_vectors),
+                                     index=self.feature_vectors.keys())
+            # Get the minimum distance and check if it's below max distance
+            min_distance = distances.min(axis=1).min()
+            while min_distance < self.max_distance:
+                # Identify matching objects
+                existing_index = distances.min(axis=1).argmin()
+                matched_index = distances.iloc[existing_index].argmin()
+                existing_id = distances.index[existing_index]
+                matched_id = distances.columns[matched_index]
+                # Update box and feature vector
+                self.feature_vectors[existing_id] = feat_vectors[matched_id]
+                self.boxes[existing_id] = boxes[matched_id]
+                self.disappeared[existing_id] = 0
+                # Remove items from distance matrix
+                distances.drop(index=[existing_id], columns=[matched_id], inplace=True)
+                # Recalculate min distance
+                min_distance = distances.min(axis=1).min()
+
+            # Register unmatched objects and increase disappeared for existing objects
+            for object_id in distances.index:
+                self.disappeared[object_id] += 1
+                # Deregister objects if they reached the number of maximum disappeared frames
+                if self.disappeared[object_id] > self.max_disappeared:
+                    self.__deregister(object_id)
+            for i in distances.columns:
+                self.__register(feature_vector=feat_vectors[i], box=boxes[i])
+        return self.boxes
