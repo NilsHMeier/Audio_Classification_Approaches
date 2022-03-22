@@ -32,7 +32,39 @@ class WaveModels:
             layers.AveragePooling1D(pool_size=4),
             layers.Flatten(),
             layers.Dropout(0.3),
-            layers.Dense(units=512, activation=relu),
+            layers.Dense(units=128, activation=relu),
+            layers.Dense(units=num_classes, activation=softmax)
+        ])
+        # Print model summary if required
+        if print_summary:
+            print(model.summary())
+        # If compile_model is set to True, use some default parameters for optimizer, loss and metrics
+        if compile_model:
+            model = compile_model_default(model)
+        return model
+
+    @staticmethod
+    def build_recurrent_cnn_model(input_shape: Tuple[int, int], num_classes: int, compile_model: bool = True,
+                                  print_summary: bool = True):
+        # Build model
+        model = keras.Sequential(layers=[
+            layers.InputLayer(input_shape=input_shape),
+            layers.Conv1D(filters=8, kernel_size=64, padding='causal', activation=relu),
+            layers.AveragePooling1D(pool_size=4),
+            layers.Conv1D(filters=16, kernel_size=64, padding='causal', activation=relu),
+            layers.AveragePooling1D(pool_size=4),
+            layers.Conv1D(filters=32, kernel_size=64, padding='causal', activation=relu),
+            layers.AveragePooling1D(pool_size=4),
+            layers.Conv1D(filters=64, kernel_size=64, padding='causal', activation=relu),
+            layers.AveragePooling1D(pool_size=4),
+            layers.Conv1D(filters=128, kernel_size=64, padding='causal', activation=relu),
+            layers.AveragePooling1D(pool_size=4),
+            layers.LSTM(units=256, return_sequences=True),
+            layers.LSTM(units=128, return_sequences=True),
+            layers.LSTM(units=64, return_sequences=True),
+            layers.Flatten(),
+            layers.Dropout(0.3),
+            layers.Dense(units=128, activation=relu),
             layers.Dense(units=num_classes, activation=softmax)
         ])
         # Print model summary if required
@@ -53,8 +85,8 @@ class WaveModels:
             X = input_layer
             for i in range(n_convs):
                 X = layers.Conv1D(filters=n_filters, kernel_size=kernel_size, padding='causal', activation=relu,
-                                  name=f'Kernel_Size_{kernel_size}_Conv{i+1}')(X)
-                X = layers.AveragePooling1D(pool_size=pool_size, name=f'Kernel_Size_{kernel_size}_Pool{i+1}')(X)
+                                  name=f'Kernel_Size_{kernel_size}_Conv{i + 1}')(X)
+                X = layers.AveragePooling1D(pool_size=pool_size, name=f'Kernel_Size_{kernel_size}_Pool{i + 1}')(X)
                 n_filters *= 2
             concat_layers.append(X)
         X = layers.concatenate(inputs=concat_layers, axis=1, name='Concatenate_Layer')
@@ -177,11 +209,11 @@ class SpectralModels:
         X = layers.Activation(activation=relu)(input_layer)
         for i in range(residual_blocks):
             # Build residual path
-            res_X = layers.Conv2D(filters=num_filters*2, kernel_size=3, padding='same', activation=relu)(X)
+            res_X = layers.Conv2D(filters=num_filters * 2, kernel_size=3, padding='same', activation=relu)(X)
             # Build Conv path
             conv_X = layers.Conv2D(filters=num_filters, kernel_size=3, padding='same', activation=relu)(X)
             conv_X = layers.BatchNormalization()(conv_X)
-            conv_X = layers.Conv2D(filters=num_filters*2, kernel_size=3, padding='same', activation=relu)(conv_X)
+            conv_X = layers.Conv2D(filters=num_filters * 2, kernel_size=3, padding='same', activation=relu)(conv_X)
             # Add paths
             X = layers.add([res_X, conv_X])
             X = layers.MaxPooling2D()(X)
@@ -190,12 +222,46 @@ class SpectralModels:
         # Add classifier to network
         X = layers.Flatten()(X)
         X = layers.Dropout(0.5)(X)
-        X = layers.Dense(units=512, activation=relu)(X)
+        X = layers.Dense(units=128, activation=relu)(X)
         X = layers.Dropout(0.5)(X)
         y = layers.Dense(units=num_classes, activation=softmax)(X)
 
         # Build final model
         model = Model(inputs=input_layer, outputs=y)
+        # Print model summary if required
+        if print_summary:
+            print(model.summary())
+        # If compile_model is set to True, use some default parameters for optimizer, loss and metrics
+        if compile_model:
+            model = compile_model_default(model)
+        return model
+
+    @staticmethod
+    def build_recurrent_cnn_model(input_shape: Tuple[int, int, int], num_classes: int, compile_model: bool = True,
+                                  print_summary: bool = True) -> Model:
+        model = keras.Sequential(layers=[
+            layers.InputLayer(input_shape=input_shape),
+            layers.Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation=relu),
+            layers.BatchNormalization(),
+            layers.Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation=relu),
+            layers.MaxPooling2D(),
+            layers.Conv2D(filters=16, kernel_size=(3, 3), padding='same', activation=relu),
+            layers.BatchNormalization(),
+            layers.Conv2D(filters=16, kernel_size=(3, 3), padding='same', activation=relu),
+            layers.MaxPooling2D(),
+            layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation=relu),
+            layers.BatchNormalization(),
+            layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation=relu),
+            layers.Reshape(target_shape=(32, -1)),
+            layers.LSTM(units=256, return_sequences=True),
+            layers.LSTM(units=128, return_sequences=True),
+            layers.LSTM(units=64, return_sequences=True),
+            layers.Flatten(),
+            layers.Dropout(0.5),
+            layers.Dense(units=64, activation=relu),
+            layers.Dense(units=32, activation=relu),
+            layers.Dense(units=num_classes, activation=softmax)
+        ])
         # Print model summary if required
         if print_summary:
             print(model.summary())
