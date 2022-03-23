@@ -6,7 +6,7 @@ import pandas as pd
 import librosa
 from librosa import display
 import cv2
-from typing import List, Tuple, Iterable, Union
+from typing import List, Tuple, Iterable, Dict
 from tensorflow.keras.callbacks import History
 
 
@@ -137,30 +137,26 @@ def plot_feature_performances(features: List[Tuple[str]], scores: Iterable[float
     plt.show()
 
 
-def plot_augmentation_results(original_sample: np.ndarray, augmented_sample: np.ndarray, sampling_rate: int,
+def plot_augmentation_results(samples: Dict[str, np.ndarray], sampling_rate: int,
                               title: str = ''):
-    if original_sample.shape != augmented_sample.shape:
-        raise ValueError(f'Input shapes of original and augmented sample should be equal, but are '
-                         f'{original_sample.shape} and {augmented_sample.shape}')
     # Create figure and add subplots
-    fig, axs = plt.subplots(nrows=2, sharex=True)
+    fig, axs = plt.subplots(nrows=len(samples), sharex=True)
     fig.suptitle(title, fontsize=16)
 
-    # Check type of input
-    if len(original_sample.shape) == 1:
-        # Waveform input
-        librosa.display.waveplot(y=original_sample, sr=sampling_rate, ax=axs[0])
-        librosa.display.waveplot(y=augmented_sample, sr=sampling_rate, ax=axs[1])
-    elif len(original_sample.shape) == 2:
-        # Spectrogram input
-        sns.heatmap(original_sample, ax=axs[0], cmap='rocket')
-        sns.heatmap(augmented_sample, ax=axs[1], cmap='rocket')
-    else:
-        raise ValueError('Unknown input type! Input should be either 1-d for waveform or 2-d for spectrograms')
+    # Iterate over dictionary and plot the sample
+    for i, (name, sample) in enumerate(samples.items()):
+        # Check type of input
+        if len(sample.shape) == 1:
+            # Waveform input
+            librosa.display.waveplot(y=sample, sr=sampling_rate, ax=axs[i])
+        elif len(sample.shape) == 2:
+            # Spectrogram input
+            sns.heatmap(sample, ax=axs[i], cmap='rocket')
+        else:
+            raise ValueError('Unknown input type! Input should be either 1-d for waveform or 2-d for spectrograms')
 
-    # Set titles of subplots
-    axs[0].set(title='Original Sample')
-    axs[1].set(title='Augmented Sample')
+        # Set titles of subplots
+        axs[i].set(title=name)
     plt.show()
 
 
