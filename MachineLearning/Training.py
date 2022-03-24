@@ -1,5 +1,6 @@
 from .Evaluation import Evaluation
 from .ModelBuilder import compile_model_default
+from .CLR import CyclicLR
 import tensorflow as tf
 from tensorflow.keras import models, Sequential, callbacks, Model, utils
 from tensorflow.keras.losses import CategoricalCrossentropy
@@ -11,14 +12,15 @@ from typing import Iterable, Tuple, Union, List, Callable, Dict
 
 
 def get_best_model(model: Model, X_train: Iterable, y_train: Iterable, X_test: Iterable, y_test: Iterable, metric: str,
-                   repeats: int = 3, augmentation_fn: Callable = None) -> Tuple[Sequential, float, callbacks.History]:
+                   repeats: int = 3, augmentation_fn: Callable = None, use_clr: bool = True) \
+        -> Tuple[Sequential, float, callbacks.History]:
     best_score, best_model, history = 0., None, None
     dataset = create_tf_dataset(X=X_train, y=y_train, augmentation_fn=augmentation_fn)
     for i in range(repeats):
         print(f'Performing run {i + 1}/{repeats}')
         temp_model = compile_model_default(model=models.clone_model(model=model))
         temp_history = temp_model.fit(dataset, batch_size=64, epochs=100, validation_data=(X_test, y_test),
-                                      callbacks=[callbacks.EarlyStopping(patience=10, restore_best_weights=True)])
+                                      callbacks=create_callbacks(use_clr=use_clr))
         y_pred = np.argmax(model.predict(X_test), axis=1)
         score = Evaluation.single_classification(stat=metric, y_true=y_test, y_pred=y_pred)
         if score > best_score:
@@ -29,14 +31,15 @@ def get_best_model(model: Model, X_train: Iterable, y_train: Iterable, X_test: I
 
 
 def get_stable_metric(model: Model, X_train: Iterable, y_train: Iterable, X_test: Iterable, y_test: Iterable,
-                      metric: str, repeats: int = 3, mode: str = 'mean', augmentation_fn: Callable = None) -> float:
+                      metric: str, repeats: int = 3, mode: str = 'mean', augmentation_fn: Callable = None,
+                      use_clr: bool = True) -> float:
     scores = []
     dataset = create_tf_dataset(X=X_train, y=y_train, augmentation_fn=augmentation_fn)
     for i in range(repeats):
         print(f'Performing run {i + 1}/{repeats}')
         temp_model = compile_model_default(model=models.clone_model(model=model))
         temp_model.fit(dataset, batch_size=64, epochs=100, validation_data=(X_test, y_test),
-                       callbacks=[callbacks.EarlyStopping(patience=10, restore_best_weights=True)])
+                       callbacks=create_callbacks(use_clr=use_clr))
         y_pred = np.argmax(model.predict(X_test), axis=1)
         scores.append(Evaluation.single_classification(stat=metric, y_true=y_test, y_pred=y_pred))
     if mode == 'mean':
@@ -52,8 +55,8 @@ def get_stable_metric(model: Model, X_train: Iterable, y_train: Iterable, X_test
 
 
 def get_cross_validation_score(model: Model, features: Union[np.ndarray, Iterable], labels: Union[np.ndarray, Iterable],
-                               metric: Union[str, List[str]], augmentation_fn: Callable = None, n_folds: int = 5) \
-        -> Union[float, Dict[str, float]]:
+                               metric: Union[str, List[str]], augmentation_fn: Callable = None, n_folds: int = 5,
+                               use_clr: bool = True) -> Union[float, Dict[str, float]]:
     if len(labels.shape) != 2:
         labels = utils.to_categorical(labels)
 
@@ -66,7 +69,7 @@ def get_cross_validation_score(model: Model, features: Union[np.ndarray, Iterabl
         temp_model = compile_model_default(model=models.clone_model(model=model))
         dataset = create_tf_dataset(X=X_train, y=y_train, augmentation_fn=augmentation_fn)
         temp_model.fit(dataset, validation_data=(X_test, y_test), epochs=100,
-                       callbacks=callbacks.EarlyStopping(patience=10, restore_best_weights=True))
+                       callbacks=create_callbacks(use_clr=use_clr))
         y_pred = np.argmax(temp_model.predict(X_test), axis=1)
         y_true = np.argmax(y_test, axis=1)
         if isinstance(metric, str):
@@ -100,3 +103,10 @@ def create_tf_dataset(X: np.ndarray, y: np.ndarray, augmentation_fn: Callable = 
     y_dataset = tf.data.Dataset.from_tensor_slices(y)
     dataset = tf.data.Dataset.zip((X_dataset, y_dataset)).batch(batch_size=batch_size).prefetch(tf.data.AUTOTUNE)
     return dataset
+
+
+def create_callbacks(monitor: str = 'val_loss', mode: str = 'auto', patience: int = 10, use_clr: bool = True) \
+        -> List[callbacks.Callback]:
+    early_stopping = callbacks.EarlyStopping(monitor=monitor, patience=patience, mode=mode, restore_best_weights=True)
+    clr = CyclicLR(base_lr=0.0005, max_lr=0.005, mode='triangular2')
+    return [early_stopping, clr] if use_clr else [early_stopping]
