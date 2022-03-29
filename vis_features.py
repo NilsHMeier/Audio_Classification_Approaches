@@ -2,6 +2,7 @@ import pathlib
 import random
 import pandas as pd
 import numpy as np
+from matplotlib import pyplot as plt, patches
 from Utils import Visualizer
 from Preprocessing.AudioProcessor import AudioProcessor
 from Preprocessing.FeatureEngineering import SpectralFeatures
@@ -44,7 +45,7 @@ def visualize_handcrafted_features():
 
         # Apply fourier transformation and calculate features
         amplitude = np.fft.rfft(relevant_audio, len(relevant_audio)).real
-        max_freq = frequencies[np.argmax(np.abs(amplitude)*frequencies)]
+        max_freq = frequencies[np.argmax(np.abs(amplitude) * frequencies)]
         freq_weighted = float(np.sum(frequencies * amplitude)) / np.sum(amplitude)
         psd = np.divide(np.square(amplitude), float(len(amplitude)))
         psd_pdf = np.divide(psd, np.sum(psd))
@@ -75,6 +76,37 @@ def visualize_handcrafted_features():
                          types=['plot'], title='Results of Fourier Transformation')
 
 
+def visualize_feature_extraction():
+    # Load audio signal and label file
+    audio, sr = audio_engineer.load_audio_from_wav(audio_name='Sample_07')
+    label_df = feature_engineer.load_label_file(filename='Sample_07')
+    # Use first 25s of sample to demeonstrate the extraction
+    audio = audio[:15 * sr]
+    label_df = label_df[label_df['time'] <= 15]
+
+    # Create figure and plot the waveform & the labels
+    fig, axs = plt.subplots(figsize=(16, 7))
+    fig.suptitle('Feature Extraction', fontsize=16)
+    axs.plot(np.arange(len(audio)) / sr, audio, label='Audio Signal', color='lightblue', zorder=1)
+    axs.vlines(label_df.loc[label_df['label'] == 1, 'time'] + 0.1, ymin=min(audio), ymax=max(audio), color='red',
+               label='Vehicle Passes', linestyles='dotted', zorder=2)
+    # Plot the boxes for the respective windows
+    for i in range(15):
+        point = (i * STEP_SIZE, -0.04 if i % 2 == 0 else -0.038)
+        box = patches.Rectangle(xy=point, width=WINDOW_SIZE, height=0.08, color='darkblue', fill=False, zorder=3,
+                                label='Windows & Label' if i == 0 else None)
+        axs.add_patch(box)
+        label = label_df[(label_df['time'] >= i * STEP_SIZE) & (label_df['time'] < i * STEP_SIZE + WINDOW_SIZE)][
+            'label'].sum()
+        axs.text(x=point[0] + 0.7, y=-0.044 if i % 2 == 0 else 0.044, s=str(label), zorder=4)
+
+    # Format the plot
+    axs.legend()
+    axs.set(title=f'Window Size = {WINDOW_SIZE} - Step Size = {STEP_SIZE}', xlim=(0, 15), ylim=(-0.06, 0.06))
+    plt.show()
+
+
 if __name__ == '__main__':
     visualize_spectrogram_features()
     visualize_handcrafted_features()
+    visualize_feature_extraction()
