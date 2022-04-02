@@ -1,14 +1,19 @@
 import tensorflow.keras as keras
-from tensorflow.keras import layers, optimizers, losses, metrics, Model
+from tensorflow.keras import layers, optimizers, losses, metrics, Model, Sequential
 from tensorflow.keras.activations import relu, softmax, tanh, sigmoid
 from tensorflow.keras.applications import vgg19, resnet50
-from typing import Tuple, List
 from .ResNetBuilder import build_resnet_model
+from .Evaluation import PredictionErrorMetric
+from tensorflow_addons.metrics import F1Score
+from typing import Tuple, List, Union
 
 
-def compile_model_default(model: keras.Sequential) -> keras.Sequential:
+def compile_model_default(model: Union[Sequential, Model]) -> Model:
+    class_count = model.output.shape[-1]
     model.compile(optimizer=optimizers.Adam(), loss=losses.CategoricalCrossentropy(from_logits=True),
-                  metrics=[metrics.CategoricalAccuracy(name='accuracy')])
+                  metrics=[metrics.CategoricalAccuracy(name='accuracy'),
+                           PredictionErrorMetric(num_classes=class_count, normalize=True, name='rel_error'),
+                           F1Score(num_classes=class_count, average='macro', name='f1')])
     return model
 
 
