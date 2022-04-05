@@ -14,10 +14,12 @@ from abc import abstractmethod, ABC
 
 class FeatureEngineering(ABC):
 
-    def __init__(self, audio_path: pathlib.Path, label_path: pathlib.Path, audio_sr: int, label_mode: str):
+    def __init__(self, audio_path: pathlib.Path, label_path: pathlib.Path, audio_sr: int, label_mode: str,
+                 standardize: bool = False):
         self.audio_path = audio_path
         self.label_path = label_path
         self.label_mode = label_mode
+        self.standardize = standardize
         self.audio_engineer = AudioProcessor(video_path=None, audio_path=audio_path, target_sr=audio_sr)
 
     def features_from_directory(self, window_size: float, step_size: float, modes: List[str] = None,
@@ -107,13 +109,22 @@ class SpectralFeatures(FeatureEngineering):
             if 'mels' in modes:
                 spectrogram = librosa.feature.melspectrogram(y=relevant_audio, sr=sr, n_mels=64)
                 spectrogram_db = librosa.power_to_db(S=spectrogram, ref=np.max)
-                feat_list.append(spectrogram_db)
+                if self.standardize:
+                    feat_list.append((spectrogram_db - np.mean(spectrogram_db)) / np.std(spectrogram_db))
+                else:
+                    feat_list.append(spectrogram_db)
             if 'stft' in modes:
                 stft = librosa.feature.chroma_stft(y=relevant_audio, sr=sr, n_chroma=64)
-                feat_list.append(stft)
+                if self.standardize:
+                    feat_list.append((stft - np.mean(stft)) / np.std(stft))
+                else:
+                    feat_list.append(stft)
             if 'cqt' in modes:
                 cqt = librosa.feature.chroma_cqt(y=relevant_audio, sr=sr, n_chroma=64, bins_per_octave=64)
-                feat_list.append(cqt)
+                if self.standardize:
+                    feat_list.append((cqt - np.mean(cqt)) / np.std(cqt))
+                else:
+                    feat_list.append(cqt)
             # Stack features to 3d-array
             features.append(np.dstack(feat_list))
 
@@ -139,6 +150,8 @@ class WaveFeatures(FeatureEngineering):
             if len(relevant_audio) != snippet_length:
                 break
             # Append audio snippet to feature list
+            if self.standardize:
+                relevant_audio = (relevant_audio - np.mean(relevant_audio)) / np.std(relevant_audio)
             features.append(np.array(relevant_audio).reshape((-1, 1)) if stack_data else relevant_audio)
         return np.array(features)
 
