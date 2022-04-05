@@ -6,7 +6,7 @@ import pandas as pd
 import librosa
 from librosa import display
 import cv2
-from typing import List, Tuple, Iterable, Dict
+from typing import List, Tuple, Dict
 from tensorflow.keras.callbacks import History
 
 
@@ -25,7 +25,7 @@ def plot_data(dataset: pd.DataFrame, plot_columns: List[List[str]], x_column: st
             else:
                 print(f'Unknown plot type "{types[index]}"!')
         axs[index].legend()
-        axs[index].set(xlim=(0, np.max(dataset[x_column])))
+        axs[index].set(xlim=(np.min(dataset[x_column]), np.max(dataset[x_column])))
     plt.show()
 
 
@@ -104,36 +104,34 @@ def display_images(images: List[np.ndarray], titles: List[str], plot_shape: Tupl
     plt.show()
 
 
-def plot_heatmap(matrix: np.ndarray, classnames: List[str], xlabel: str = 'Predicted Label',
-                 ylabel: str = 'True Label', title: str = '', suptitle: str = '',
-                 colormap: str = 'Blues'):
+def plot_heatmap(matrix: np.ndarray, xlabel: str, xticks: List[str], ylabel: str, yticks: List[str], title: str = '',
+                 suptitle: str = '', colormap: str = 'Blues'):
     colormap = plt.cm.get_cmap(colormap)
     fig, axs = plt.subplots()
     fig.suptitle(title, fontsize=16)
-    sns.heatmap(matrix, xticklabels=classnames, yticklabels=classnames, annot=True, fmt='g',
-                ax=axs, cmap=colormap)
+    sns.heatmap(matrix, xticklabels=xticks, yticklabels=yticks, annot=True, fmt='g', ax=axs, cmap=colormap)
     axs.set(xlabel=xlabel, ylabel=ylabel, title=suptitle)
     plt.show()
 
 
-def plot_feature_performances(features: List[Tuple[str]], scores: Iterable[float], title: str = '', suptitle: str = ''):
+def plot_feature_performances(features: List[str], scores: Dict[str, List[float]], title: str = '', suptitle: str = ''):
+    # Create a DataFrame out of the provided features and scores
+    df = pd.DataFrame(columns=['Features', 'Score', 'Model'])
+    for m, s in scores.items():
+        df = df.append(other=pd.DataFrame({'Features': features, 'Score': s, 'Model': [m]*len(s)}), ignore_index=True)
+
+    # Create subplot and add title
     fig, axs = plt.subplots()
     fig.suptitle(title, fontsize=16)
 
-    # Join features for yticklabels
-    labels = [','.join(f) for f in features]
-
     # Create horizontal bar plot
-    ind = np.arange(len(features))
-    axs.barh(ind, scores, 0.75, color='lightblue')
+    bars = sns.barplot(data=df, y='Features', x='Score', hue='Model', palette=sns.color_palette("Blues", as_cmap=False),
+                       ax=axs)
     axs.set(title=suptitle, xlabel='Score', ylabel='Features')
-    axs.set_yticks(ind)
-    axs.set_yticklabels(labels, minor=False)
-
-    # Add score values to bars
-    for i, v in enumerate(scores):
-        axs.text(v - 0.15, i, str(v), color='black', fontweight='bold')
-
+    # Annotate the bars
+    for bar in bars.containers:
+        bars.bar_label(bar)
+    plt.tight_layout()
     plt.show()
 
 
