@@ -81,8 +81,8 @@ class SpectralFeatures(FeatureEngineering):
     available_modes = ['mels', 'stft', 'cqt']
 
     def __init__(self, audio_path: pathlib.Path, label_path: pathlib.Path, audio_sr: int = 22050,
-                 label_mode: str = 'max'):
-        super().__init__(audio_path, label_path, audio_sr, label_mode)
+                 label_mode: str = 'max', standardize: bool = False):
+        super().__init__(audio_path, label_path, audio_sr, label_mode, standardize)
 
     def features_for_audio(self, audio: np.ndarray, sr: int, window_size: float, step_size: float,
                            modes: List[str] = None, stack_data: bool = False) -> np.ndarray:
@@ -134,8 +134,8 @@ class SpectralFeatures(FeatureEngineering):
 class WaveFeatures(FeatureEngineering):
 
     def __init__(self, audio_path: pathlib.Path, label_path: pathlib.Path, audio_sr: int = 22050,
-                 label_mode: str = 'max'):
-        super().__init__(audio_path, label_path, audio_sr, label_mode)
+                 label_mode: str = 'max', standardize: bool = False):
+        super().__init__(audio_path, label_path, audio_sr, label_mode, standardize)
 
     def features_for_audio(self, audio: np.ndarray, sr: int, window_size: float, step_size: float,
                            modes: List[str] = None, stack_data: bool = False) -> np.ndarray:
