@@ -21,7 +21,7 @@ class WaveModels:
 
     @staticmethod
     def build_base_model(input_shape: Tuple[int, int], num_classes: int, compile_model: bool = True,
-                         print_summary: bool = True):
+                         print_summary: bool = True) -> Model:
         # Build model
         model = keras.Sequential(layers=[
             layers.InputLayer(input_shape=input_shape),
@@ -49,8 +49,40 @@ class WaveModels:
         return model
 
     @staticmethod
+    def build_sample_level_cnn(input_shape: Tuple[int, int], num_classes: int, compile_model: bool = True,
+                               print_summary: bool = True) -> Model:
+        # Build model
+        model = keras.Sequential(layers=[
+            layers.InputLayer(input_shape=input_shape),
+            layers.Conv1D(filters=128, kernel_size=3, strides=3, padding='causal', activation=relu),
+            layers.Conv1D(filters=128, kernel_size=3, strides=1, padding='causal', activation=relu),
+            layers.MaxPooling1D(pool_size=3, strides=3),
+            layers.Conv1D(filters=256, kernel_size=3, strides=1, padding='causal', activation=relu),
+            layers.MaxPooling1D(pool_size=3, strides=3),
+            layers.Conv1D(filters=256, kernel_size=3, strides=1, padding='causal', activation=relu),
+            layers.MaxPooling1D(pool_size=3, strides=3),
+            layers.Conv1D(filters=256, kernel_size=3, strides=1, padding='causal', activation=relu),
+            layers.MaxPooling1D(pool_size=3, strides=3),
+            layers.Conv1D(filters=256, kernel_size=3, strides=1, padding='causal', activation=relu),
+            layers.MaxPooling1D(pool_size=3, strides=3),
+            layers.Conv1D(filters=256, kernel_size=3, strides=1, padding='causal', activation=relu),
+            layers.MaxPooling1D(pool_size=3, strides=3),
+            layers.Conv1D(filters=512, kernel_size=1, strides=1, padding='causal', activation=relu),
+            layers.Flatten(),
+            layers.Dropout(0.5),
+            layers.Dense(units=num_classes, activation=softmax)
+        ])
+        # Print model summary if required
+        if print_summary:
+            print(model.summary())
+        # If compile_model is set to True, use some default parameters for optimizer, loss and metrics
+        if compile_model:
+            model = compile_model_default(model)
+        return model
+
+    @staticmethod
     def build_recurrent_cnn_model(input_shape: Tuple[int, int], num_classes: int, compile_model: bool = True,
-                                  print_summary: bool = True):
+                                  print_summary: bool = True) -> Model:
         # Build model
         model = keras.Sequential(layers=[
             layers.InputLayer(input_shape=input_shape),
@@ -64,9 +96,9 @@ class WaveModels:
             layers.AveragePooling1D(pool_size=4),
             layers.Conv1D(filters=128, kernel_size=64, padding='causal', activation=relu),
             layers.AveragePooling1D(pool_size=4),
-            layers.LSTM(units=256, return_sequences=True),
             layers.LSTM(units=128, return_sequences=True),
-            layers.LSTM(units=64, return_sequences=True),
+            layers.LSTM(units=128, return_sequences=True),
+            layers.LSTM(units=128, return_sequences=True),
             layers.Flatten(),
             layers.Dropout(0.3),
             layers.Dense(units=128, activation=relu),
