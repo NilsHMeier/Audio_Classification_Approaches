@@ -114,20 +114,26 @@ class WaveModels:
 
     @staticmethod
     def build_parallel_cnn(input_shape: Tuple[int, int], num_classes: int, kernel_sizes: List[int], n_convs: int,
-                           pool_size: int = 4, compile_model: bool = True, print_summary: bool = True) -> Model:
+                           aggregation_mode: str, pool_size: int = 4, compile_model: bool = True,
+                           print_summary: bool = True) -> Model:
         input_layer = layers.Input(shape=input_shape, name='Input_Layer')
-        concat_layers = []
+        aggregate_layers = []
         for kernel_size in kernel_sizes:
-            n_filters = 16
+            n_filters = 8
             X = input_layer
             for i in range(n_convs):
                 X = layers.Conv1D(filters=n_filters, kernel_size=kernel_size, padding='causal', activation=relu,
                                   name=f'Kernel_Size_{kernel_size}_Conv{i + 1}')(X)
                 X = layers.AveragePooling1D(pool_size=pool_size, name=f'Kernel_Size_{kernel_size}_Pool{i + 1}')(X)
                 n_filters *= 2
-            concat_layers.append(X)
-        X = layers.concatenate(inputs=concat_layers, axis=1, name='Concatenate_Layer')
-        X = layers.Dropout(rate=0.5)(layers.Flatten(name='Flatten-Layer')(X))
+            aggregate_layers.append(X)
+        if len(aggregate_layers) > 1:
+            if aggregation_mode == 'concat':
+                X = layers.concatenate(inputs=aggregate_layers, axis=1, name='Concatenate_Layer')
+            elif aggregation_mode == 'add':
+                X = layers.add(inputs=aggregate_layers, name='Add_Layer')
+        X = layers.Flatten(name='Flatten_Layer')(X)
+        X = layers.Dropout(rate=0.5, name='Dropout_Layer')(X)
         clf = layers.Dense(units=num_classes, activation=softmax, name='Classifier')(X)
 
         model = Model(inputs=input_layer, outputs=clf)
