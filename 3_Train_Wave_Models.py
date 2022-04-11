@@ -88,14 +88,14 @@ def test_parallel_cnn_architecture():
         print('Current model type is Addition.')
         model = WM.build_parallel_cnn(input_shape=features[0].shape, num_classes=class_count, kernel_sizes=sizes,
                                       n_convs=5, aggregation_mode='add', print_summary=False)
-        score = Training.get_stable_metric(model=model, features=features, labels=labels, metric='rel_error', repeats=1,
+        score = Training.get_stable_metric(model=model, features=features, labels=labels, metric='rel_error', repeats=3,
                                            aggregation_mode='min', augmentation_fn=augment_engineer.apply_both_tf)
         scores['Addition'].append(score)
 
         print('Current model type is Concatenate.')
         model = WM.build_parallel_cnn(input_shape=features[0].shape, num_classes=class_count, kernel_sizes=sizes,
                                       n_convs=5, aggregation_mode='concat', print_summary=False)
-        score = Training.get_stable_metric(model=model, features=features, labels=labels, metric='rel_error', repeats=1,
+        score = Training.get_stable_metric(model=model, features=features, labels=labels, metric='rel_error', repeats=3,
                                            aggregation_mode='min', augmentation_fn=augment_engineer.apply_both_tf)
         scores['Concatenation'].append(score)
 
@@ -164,11 +164,11 @@ def main():
 if __name__ == '__main__':
     # Parse command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--wavenet', type=bool, default=False, choices=[True, False],
+    parser.add_argument('--wavenet', type=bool, default=True, choices=[True, False],
                         help='Choose to test different WaveNet architectures.')
     parser.add_argument('--parallel', type=bool, default=True, choices=[True, False],
                         help='Choose to test different kernel sizes.')
-    parser.add_argument('--augment', type=bool, default=False, choices=[True, False],
+    parser.add_argument('--augment', type=bool, default=True, choices=[True, False],
                         help='Choose to study the impact of data augmentation.')
     parser.add_argument('--save', type=bool, default=True, choices=[True, False],
                         help='Select to save the results to external files.')
