@@ -16,17 +16,17 @@ EPOCHS = 100
 TEST_SIZE = 0.3
 
 
-def get_best_model(model: Model, features: np.ndarray, labels: np.ndarray, metric: str, mode: str = 'auto',
-                   repeats: int = 3, augmentation_fn: Callable = None, use_clr: bool = True) \
-        -> Tuple[Model, float, callbacks.History]:
+def get_best_model(model: Model, features: np.ndarray, labels: np.ndarray, scoring_metric: str, metrics: List[str],
+                   mode: str = 'auto', repeats: int = 3, augmentation_fn: Callable = None, use_clr: bool = True) \
+        -> Tuple[Model, float, callbacks.History, Dict[str, float]]:
     # Encode labels if required
     if len(labels.shape) != 2:
         labels = utils.to_categorical(labels)
     # Determine mode if required
     if mode == 'auto':
-        mode = 'min' if metric in list(Evaluation.reg_metrics.keys()) + ['abs_error', 'rel_error'] else 'max'
+        mode = 'min' if scoring_metric in list(Evaluation.reg_metrics.keys()) + ['abs_error', 'rel_error'] else 'max'
 
-    best_score, best_model, history = 0.0 if mode == 'max' else np.inf, None, None
+    best_score, best_model, history, metric = 0.0 if mode == 'max' else np.inf, None, None, None
     # Train multiple models and return the model with the best performance
     for i in range(repeats):
         print(f'Performing run {i + 1}/{repeats}')
@@ -40,12 +40,13 @@ def get_best_model(model: Model, features: np.ndarray, labels: np.ndarray, metri
         # Predict the test set and calculate the metric
         y_pred = np.argmax(temp_model.predict(X_test), axis=1)
         y_true = np.argmax(y_test, axis=1)
-        score = Evaluation.single_classification(stat=metric, y_true=y_true, y_pred=y_pred)
+        score = Evaluation.single_classification(stat=scoring_metric, y_true=y_true, y_pred=y_pred)
         if mode == 'max' and score > best_score or mode == 'min' and score < best_score:
             best_score = score
             best_model = temp_model
             history = temp_history
-    return best_model, best_score, history
+            metric = Evaluation.multi_classification(stats=metrics, y_true=y_true, y_pred=y_pred)
+    return best_model, best_score, history, metric
 
 
 def get_stable_metric(model: Model, features: np.ndarray, labels: np.ndarray, metric: str, repeats: int = 3,
@@ -135,8 +136,9 @@ def create_tf_dataset(X: np.ndarray, y: np.ndarray, augmentation_fn: Callable = 
     return dataset
 
 
-def create_callbacks(monitor: str = 'val_loss', mode: str = 'auto', patience: int = 10, use_clr: bool = True) \
-        -> List[callbacks.Callback]:
-    early_stopping = callbacks.EarlyStopping(monitor=monitor, patience=patience, mode=mode, restore_best_weights=True)
+def create_callbacks(monitor: str = 'val_loss', mode: str = 'auto', patience: int = 10, use_clr: bool = True,
+                     restore_weights: bool = True) -> List[callbacks.Callback]:
+    early_stopping = callbacks.EarlyStopping(monitor=monitor, patience=patience, mode=mode,
+                                             restore_best_weights=restore_weights)
     clr = CyclicLR(base_lr=0.001, max_lr=0.003, mode='triangular', step_size=500)
     return [early_stopping, clr] if use_clr else [early_stopping]
