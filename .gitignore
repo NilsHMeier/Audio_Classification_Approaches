@@ -1,7 +1,6 @@
 /.idea
 /data/Video/
 /data/Audio/
-/data/Test/
 /ComputerVision/YOLO
 /models/Spec/*.h5
 models/Wave/*.h5
