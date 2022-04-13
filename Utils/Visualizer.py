@@ -199,3 +199,23 @@ def plot_learning_rate(history: History, plot_metric: bool = False, metric: str 
         axs[1].set(title='Accuracy depending on Learning Rate', xlabel='Learning Rate', ylabel='Accuracy',
                    xlim=(min(history.history['lr']), max(history.history['lr'])), ylim=(0, 1))
     plt.show()
+
+
+def plot_aggregated_predictions(predictions_df: pd.DataFrame, plot_type: str = 'bar',
+                                title: str = 'Aggregated Predictions', suptitle: str = ''):
+    fig, axs = plt.subplots()
+    fig.suptitle(title, fontsize=16)
+    axs.set(title=suptitle)
+    indices = np.arange(0, len(predictions_df['cars']))
+    if plot_type == 'bar':
+        axs.bar(indices, predictions_df['cars'], color='lightblue')
+    elif plot_type == 'line' or plot_type == 'plot':
+        axs.plot(indices, predictions_df['cars'], color='lightblue')
+    else:
+        raise ValueError(f'Unknown plot type {plot_type}!')
+    # Create labels at the points
+    for x, y in zip(indices, predictions_df['cars']):
+        axs.text(x - 0.05, y + 0.15, str(int(y)), color='black', fontweight='bold', fontsize=11)
+    axs.set_xticks(indices)
+    axs.set_xticklabels(list(map(dt.datetime.time, (predictions_df['timestamp']))), rotation=90)
+    plt.show()
